@@ -1,0 +1,24 @@
+cache_dir: "c:/Users/Jacob Poschl/le-jepa-snn/snn-jepa/visual_behavior_neuropixels_data"
+results_dir: "c:/Users/Jacob Poschl/Desktop/visb_ecephys_analysis/results"
+
+sessions:
+  genotype: "Sst"
+  experience_level: "Novel"
+
+unit_filters:
+  snr_min : 1.0
+  isi_violations_max : 1.0
+  firing_rate_min : 0.1
+  quality: "good"
+
+optotagging:
+  baseline_window : [-0.010, -0.002]
+  evoked_window : [0.001, 0.009]
+  min_fold_increase : 5.0
+  min_evoked_rate : 10
+  max_pulse_duration : 0.1
+
+psth:
+  time_before : 0.5
+  duration : 1.5
+  bin_size : 0.001
