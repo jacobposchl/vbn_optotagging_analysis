@@ -450,22 +450,33 @@ def plot_fp_summary(session_results, fp_rates, genotype=None):
     Returns the matplotlib Figure.
     """
     n = len(session_results)
-    x = np.arange(n)
     true_counts = [int(r['cre_pos_mask'].sum()) for r in session_results]
     mean_fps    = [d['mean_fp'] for d in fp_rates]
     std_fps     = [d['std_fp']  for d in fp_rates]
 
-    fig, ax = plt.subplots(figsize=(max(8, n * 0.7), 4))
-    width = 0.35
-    ax.bar(x - width / 2, true_counts, width, label='True Cre+', color='coral')
-    ax.bar(x + width / 2, mean_fps, width, yerr=std_fps,
-           label='Shuffled FP (mean ± std)', color='steelblue',
-           capsize=3, error_kw={'linewidth': 1})
-
-    ax.set_xticks(x)
-    ax.set_xticklabels([str(i) for i in x], fontsize=8)
-    ax.set_xlabel('Session index')
-    ax.set_ylabel('Unit count')
+    if n == 1:
+        # Single-session: two side-by-side bars labelled directly
+        fig, ax = plt.subplots(figsize=(5, 4))
+        width = 0.4
+        ax.bar(0, true_counts[0], width, label='True Cre+', color='coral')
+        ax.bar(1, mean_fps[0], width, yerr=std_fps[0],
+               label='Shuffled FP (mean ± std)', color='steelblue',
+               capsize=4, error_kw={'linewidth': 1})
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(['True Cre+', 'Shuffled FP'], fontsize=10)
+        ax.set_ylabel('Unit count')
+    else:
+        x = np.arange(n)
+        fig, ax = plt.subplots(figsize=(max(8, n * 0.7), 4))
+        width = 0.35
+        ax.bar(x - width / 2, true_counts, width, label='True Cre+', color='coral')
+        ax.bar(x + width / 2, mean_fps, width, yerr=std_fps,
+               label='Shuffled FP (mean ± std)', color='steelblue',
+               capsize=3, error_kw={'linewidth': 1})
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(i) for i in x], fontsize=8)
+        ax.set_xlabel('Session index')
+        ax.set_ylabel('Unit count')
     title = 'True Cre+ vs Shuffled False Positive Estimate'
     if genotype:
         title = f'{genotype} — {title}'

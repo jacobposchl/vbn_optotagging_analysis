@@ -16,7 +16,7 @@ optotagging:
   evoked_window : [0.001, 0.009]
   min_fold_increase : 2
   min_evoked_rate : 30
-  max_pulse_duration : 0.1
+  max_pulse_duration : 0.1 # Set to 100 ms, grabs the 10 ms pulses since that's the only pulse that is filtered from the dataset
 
 psth:
   time_before : 0.5
