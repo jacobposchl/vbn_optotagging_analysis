@@ -55,13 +55,13 @@ from visb_analysis.plots import (
 # SWEEP PARAMETERS — edit this section
 # ---------------------------------------------------------------------------
 
-GENOTYPE      = 'Sst'   # 'Sst' or 'Vip'
-SESSION_INDEX = 0        # which session to use (0 = first available)
+GENOTYPE      = 'Vip'   # 'Sst' or 'Vip'
+SESSION_INDEX = 5        # which session to use (0 = first available)
 REGIONS       = ['VIS']  # brain regions to include
 
 # Grid values to sweep
 FOLD_VALUES     = [2, 3, 5]   # increase_in_FR candidates
-MIN_RATE_VALUES = [10, 30,50]  # min_evoked_rate candidates (Hz)
+MIN_RATE_VALUES = [10, 30, 50]  # min_evoked_rate candidates (Hz)
 
 # Evoked window (kept fixed — only fold and min_rate are swept)
 EVOKED_START_MS = 1

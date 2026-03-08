@@ -88,22 +88,37 @@ def plot_opto_heatmaps(mean_opto, cre_pos_idx, time_bins,
 
 def plot_units_per_session(all_units_meta, title='Units per session'):
     """
-    Stacked bar chart showing optotagged vs non-optotagged units per session.
+    Two-panel chart per session: total units (top) and Cre+ count (bottom).
+    Splitting axes prevents tiny Cre+ counts from being invisible on a shared scale.
 
     all_units_meta: list of per-session unit metadata DataFrames.
     Returns the matplotlib Figure.
     """
-    opto_counts     = [meta['optotagged'].fillna(False).sum() for meta in all_units_meta]
-    non_opto_counts = [(~meta['optotagged'].fillna(False)).sum() for meta in all_units_meta]
+    opto_counts = [int(meta['optotagged'].fillna(False).sum()) for meta in all_units_meta]
+    total_counts = [len(meta) for meta in all_units_meta]
     x = np.arange(len(opto_counts))
 
-    fig, ax = plt.subplots(figsize=(11, 3))
-    ax.bar(x, non_opto_counts, label='Non-optotagged', color='steelblue')
-    ax.bar(x, opto_counts, bottom=non_opto_counts, label='Optotagged', color='coral')
-    ax.set_xlabel('Session index')
-    ax.set_ylabel('Units')
-    ax.set_title(title)
-    ax.legend()
+    fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(max(8, len(x) * 0.7), 5),
+                                          sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+
+    # Top: total units per session
+    ax_top.bar(x, total_counts, color='steelblue', alpha=0.85)
+    ax_top.set_ylabel('Total units')
+    ax_top.set_title(title)
+    ax_top.spines['top'].set_visible(False)
+    ax_top.spines['right'].set_visible(False)
+
+    # Bottom: Cre+ count per session, with count labels
+    ax_bot.bar(x, opto_counts, color='coral', alpha=0.85)
+    for xi, val in zip(x, opto_counts):
+        ax_bot.text(xi, val + 0.1, str(val), ha='center', va='bottom', fontsize=8)
+    ax_bot.set_ylabel('Cre+ units')
+    ax_bot.set_xlabel('Session index')
+    ax_bot.set_xticks(x)
+    ax_bot.set_xticklabels([str(i) for i in x], fontsize=8)
+    ax_bot.spines['top'].set_visible(False)
+    ax_bot.spines['right'].set_visible(False)
+
     fig.tight_layout()
     return fig
 
@@ -374,6 +389,147 @@ def plot_cre_fraction_by_region(meta_all, genotype=None, min_units=10):
     return fig
 
 
+# Cross-genotype region distribution (Slide 1 — absolute counts)
+
+def plot_labeled_cells_by_region(genotype_meta, min_labeled=3):
+    """
+    Side-by-side subplots of absolute labeled (Cre+) neuron counts per brain region,
+    one panel per genotype, each with its own y-scale. Regions are sorted by total
+    labeled cells (summed across genotypes) and only shown if they have >= min_labeled
+    total across all genotypes.
+
+    genotype_meta : dict mapping genotype name -> combined unit metadata DataFrame
+                    (must have 'structure_acronym' and 'optotagged' columns)
+    min_labeled   : minimum total labeled cells (across all genotypes) for a region
+                    to be shown. Default 3.
+    Returns the matplotlib Figure.
+    """
+    import pandas as pd
+
+    genotypes = list(genotype_meta.keys())
+    colors = ['#E07B54', '#5B8DB8', '#6DBF7E', '#B85B8D'][:len(genotypes)]
+
+    region_data = {}
+    for gt, meta in genotype_meta.items():
+        opto = meta['optotagged'].fillna(False).astype(bool)
+        counts = opto.groupby(meta['structure_acronym']).sum().rename(gt)
+        region_data[gt] = counts
+
+    df = pd.DataFrame(region_data).fillna(0).astype(int)
+    df['total_labeled'] = df.sum(axis=1)
+    df = df[df['total_labeled'] >= min_labeled].sort_values('total_labeled', ascending=False)
+    df = df.drop(columns='total_labeled')
+
+    n_regions = len(df)
+    x = np.arange(n_regions)
+    n_gt = len(genotypes)
+
+    fig, axes = plt.subplots(n_gt, 1, figsize=(max(12, n_regions * 0.6), 3.5 * n_gt),
+                             sharex=True)
+    if n_gt == 1:
+        axes = [axes]
+
+    for ax, gt, color in zip(axes, genotypes, colors):
+        vals = df[gt].values
+        bars = ax.bar(x, vals, color=color, alpha=0.85, label=f'{gt}+')
+        for bar, val in zip(bars, vals):
+            if val > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.2, str(int(val)),
+                        ha='center', va='bottom', fontsize=8)
+        ax.set_ylabel('Labeled neuron count')
+        ax.set_title(f'{gt}+ neurons by brain region')
+        ax.legend(fontsize=9)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    axes[-1].set_xticks(x)
+    axes[-1].set_xticklabels(df.index, rotation=45, ha='right', fontsize=9)
+    axes[-1].set_xlabel('Brain region')
+    fig.suptitle('Labeled neuron counts by brain region (Novel sessions)', fontsize=12, y=1.01)
+    fig.tight_layout()
+    return fig
+
+
+# Cross-genotype region density (Slide 2 — % of region Cre+)
+
+def plot_cre_density_by_region(genotype_meta, min_units=50, min_labeled=3):
+    """
+    Side-by-side subplots of Cre+ density (% of region) per brain region, one panel
+    per genotype with its own y-scale. Regions are shared across panels and sorted
+    by the maximum density seen in any genotype.
+
+    Only regions with >= min_units total units (in that genotype's sessions) AND
+    >= min_labeled Cre+ cells in at least one genotype are shown.
+
+    genotype_meta : dict mapping genotype name -> combined unit metadata DataFrame
+    min_units     : minimum total units in a region per genotype to compute density
+    min_labeled   : minimum Cre+ cells in at least one genotype to include the region
+    Returns the matplotlib Figure.
+    """
+    import pandas as pd
+
+    genotypes = list(genotype_meta.keys())
+    colors = ['#E07B54', '#5B8DB8', '#6DBF7E', '#B85B8D'][:len(genotypes)]
+
+    density_data = {}
+    labeled_data = {}
+    for gt, meta in genotype_meta.items():
+        opto = meta['optotagged'].fillna(False).astype(bool)
+        grp = pd.DataFrame({
+            'cre_pos': opto.groupby(meta['structure_acronym']).sum(),
+            'total':   opto.groupby(meta['structure_acronym']).count(),
+        })
+        grp['density'] = grp['cre_pos'] / grp['total'] * 100
+        grp.loc[grp['total'] < min_units, 'density'] = np.nan
+        density_data[gt] = grp['density']
+        labeled_data[gt] = grp['cre_pos']
+
+    density_df = pd.DataFrame(density_data)
+    labeled_df = pd.DataFrame(labeled_data).fillna(0)
+
+    has_enough_units = density_df.notna().any(axis=1)
+    has_labeled      = (labeled_df >= min_labeled).any(axis=1)
+    density_df = density_df[has_enough_units & has_labeled].copy()
+
+    density_df['_max'] = density_df.max(axis=1)
+    density_df = density_df.sort_values('_max', ascending=False).drop(columns='_max')
+
+    n_regions = len(density_df)
+    n_gt = len(genotypes)
+    x = np.arange(n_regions)
+
+    fig, axes = plt.subplots(n_gt, 1, figsize=(max(12, n_regions * 0.6), 3.5 * n_gt),
+                             sharex=True)
+    if n_gt == 1:
+        axes = [axes]
+
+    for ax, gt, color in zip(axes, genotypes, colors):
+        raw_vals = density_df[gt].values
+        plot_vals = np.where(np.isnan(raw_vals), 0, raw_vals)
+        bars = ax.bar(x, plot_vals, color=color, alpha=0.85, label=f'{gt}+')
+        for bar, val, raw in zip(bars, plot_vals, raw_vals):
+            if not np.isnan(raw) and val > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2,
+                        val + 0.05, f'{val:.1f}%',
+                        ha='center', va='bottom', fontsize=8)
+        ax.set_ylabel('% of region Cre+')
+        ax.set_title(f'{gt}+ density within {gt}-line sessions')
+        ax.legend(fontsize=9)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+    axes[-1].set_xticks(x)
+    axes[-1].set_xticklabels(density_df.index, rotation=45, ha='right', fontsize=9)
+    axes[-1].set_xlabel('Brain region')
+    fig.suptitle(
+        f'Labeled neuron density by region (Novel sessions, \u2265{min_units} units/region)',
+        fontsize=12, y=1.01
+    )
+    fig.tight_layout()
+    return fig
+
+
 # Trial reliability histogram
 
 def plot_reliability_histogram(reliability, cre_pos_idx, genotype=None):
@@ -482,50 +638,5 @@ def plot_fp_summary(session_results, fp_rates, genotype=None):
         title = f'{genotype} — {title}'
     ax.set_title(title)
     ax.legend()
-    fig.tight_layout()
-    return fig
-
-
-# Region comparison PSTH
-
-def plot_region_comparison(psth_opto, psth_non_opto,
-                           meta_opto, meta_non_opto, time_bins,
-                           top_n=10):
-    """
-    Side-by-side PSTH plots comparing the top_n regions (by total unit count)
-    within optotagged and non-optotagged populations.
-
-    Returns the matplotlib Figure.
-    """
-    import pandas as pd
-    all_meta = pd.concat([meta_opto, meta_non_opto])
-    top_regions = (
-        all_meta['structure_acronym'].value_counts()
-        .head(top_n)
-        .index.tolist()
-    )
-    colors = plt.cm.tab10.colors
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4), sharey=True)
-    for ax, (psth, meta, group_label) in zip(axes, [
-        (psth_opto,     meta_opto,     'Optotagged'),
-        (psth_non_opto, meta_non_opto, 'Non-optotagged'),
-    ]):
-        for region, color in zip(top_regions, colors):
-            mask = (meta['structure_acronym'] == region).values
-            if mask.sum() == 0:
-                continue
-            mean = psth[mask].mean(axis=0)
-            sem  = psth[mask].std(axis=0) / np.sqrt(mask.sum())
-            ax.plot(time_bins, mean, color=color, lw=1.5,
-                    label=f'{region} (n={mask.sum()})')
-            ax.fill_between(time_bins, mean - sem, mean + sem,
-                            alpha=0.3, color=color)
-        ax.axvline(0, color='k', lw=1, ls='--')
-        ax.set_xlabel('Time from change (s)')
-        ax.set_ylabel('Firing rate (Hz)')
-        ax.set_title(f'{group_label} — top {top_n} regions')
-        ax.legend(fontsize=7)
-
     fig.tight_layout()
     return fig

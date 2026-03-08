@@ -15,7 +15,6 @@ from .plots import (
     plot_population_psth,
     plot_psth_heatmaps,
     plot_region_distribution,
-    plot_region_comparison,
     plot_multi_session_scatter,
     plot_multi_session_counts,
     plot_reliability_histogram,

@@ -2,7 +2,9 @@ cache_dir: "c:/Users/Jacob Poschl/le-jepa-snn/snn-jepa/visual_behavior_neuropixe
 results_dir: "c:/Users/Jacob Poschl/Desktop/visb_ecephys_analysis/results"
 
 sessions:
-  genotype: "Vip"
+  # "wt/wt" matches homozygous wildtype mice only — verify against your session table
+  # before running: check unique genotype values with session_handler.session_table["genotype"].unique()
+  genotype: "wt/wt"
   experience_level: "Novel"
 
 unit_filters:
