@@ -21,4 +21,6 @@ from .plots import (
     plot_latency_histogram,
     plot_fp_summary,
     plot_cre_fraction_by_region,
+    plot_labeled_cells_by_region,
+    plot_cre_density_by_region,
 )

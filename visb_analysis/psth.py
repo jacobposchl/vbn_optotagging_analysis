@@ -40,6 +40,8 @@ def make_population_psth(unit_collection, start_times, time_before, duration, bi
 
     for i, uid in enumerate(unit_ids):
         spikes = unit_collection.spike_times.get(uid)
+        if spikes is None:
+            continue
         for j, t in enumerate(start_times):
             window_spikes = spikes[(spikes >= t - time_before) & (spikes < t + duration - time_before)]
             psth_array[i, :, j] = np.histogram(window_spikes - t, bins=bins)[0] / bin_size

@@ -314,7 +314,6 @@ def plot_region_distribution(meta_all, genotype=None):
     Returns the matplotlib Figure.
     """
     import pandas as pd
-    opto_col = meta_all['optotagged'].fillna(False).astype(bool)
     counts = (
         meta_all.groupby('structure_acronym')['optotagged']
         .agg(
@@ -356,7 +355,6 @@ def plot_cre_fraction_by_region(meta_all, genotype=None, min_units=10):
     min_units  : minimum total units a region must have to be shown (default 10).
     Returns the matplotlib Figure.
     """
-    opto = meta_all['optotagged'].fillna(False).astype(bool)
     counts = (
         meta_all.groupby('structure_acronym')['optotagged']
         .agg(

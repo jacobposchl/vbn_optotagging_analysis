@@ -164,6 +164,8 @@ def compute_shuffled_fp_rate(
     n_shuffles=20,
     shift_s=5.0,
     max_time=None,
+    exclusion_s=0.1,
+    min_pulses=10,
 ):
     """
     Estimate false-positive classification rate using time-shifted pulse trains.
@@ -171,6 +173,11 @@ def compute_shuffled_fp_rate(
     For each shuffle k (1..n_shuffles), shifts all pulse times by k * shift_s
     seconds and re-classifies units.  Units passing threshold on shifted pulses
     are counted as false positives.
+
+    Shifted pulses that fall within exclusion_s of any real pulse are removed
+    before classification to avoid contaminating the null distribution with
+    genuine light-evoked responses.  Shuffles with fewer than min_pulses
+    remaining are skipped (appends 0).
 
     Uses evoked / (baseline + 1) > increase_in_FR to match the notebook's
     Section 4 classification convention.
@@ -186,6 +193,11 @@ def compute_shuffled_fp_rate(
     n_shuffles       : int   — number of time shifts (default 20)
     shift_s          : float — shift step in seconds (default 5.0)
     max_time         : float or None — drop shifted pulses beyond this time
+    exclusion_s      : float — shifted pulses within this many seconds of any
+                               real pulse are dropped (default 0.1 s = 100 ms)
+    min_pulses       : int   — minimum remaining shifted pulses required to
+                               run classification; shuffles below this are
+                               skipped (default 10)
 
     Returns
     -------
@@ -201,7 +213,15 @@ def compute_shuffled_fp_rate(
         shifted = pulse_times + k * shift_s
         if max_time is not None:
             shifted = shifted[shifted < max_time]
-        if len(shifted) == 0:
+
+        # Drop shifted pulses that overlap with real pulse times so genuine
+        # light-evoked responses don't contaminate the null distribution.
+        keep = np.ones(len(shifted), dtype=bool)
+        for real_t in pulse_times:
+            keep &= np.abs(shifted - real_t) > exclusion_s
+        shifted = shifted[keep]
+
+        if len(shifted) < min_pulses:
             fp_counts.append(0)
             continue
 

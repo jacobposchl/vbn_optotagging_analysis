@@ -2,7 +2,6 @@
 Handles session cache and ids from allensdk
 """
 
-import allensdk
 from allensdk.brain_observatory.behavior.behavior_project_cache import VisualBehaviorNeuropixelsProjectCache
 from pathlib import Path
 
