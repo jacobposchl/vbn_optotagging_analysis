@@ -49,13 +49,13 @@ from visb_analysis.plots import (
 
 # SWEEP PARAMETERS --- ADJUST THESE
 
-GENOTYPE      = 'Vip'   # 'Sst' or 'Vip'
-SESSION_INDEX = 5        # which session to use (0 = first available)
+GENOTYPE      = 'Sst'   # 'Sst' or 'Vip'
+SESSION_INDEX = 10        # which session to use (0 = first available)
 REGIONS       = ['VIS']  # brain regions to include
 
 # Grid values to sweep
-FOLD_VALUES     = [2, 3, 5]
-MIN_RATE_VALUES = [10, 30, 50]
+FOLD_VALUES     = [1, 2, 3, 5]
+MIN_RATE_VALUES = [0, 10, 30, 50]
 
 # Evoked window
 EVOKED_START_MS = 1
@@ -107,8 +107,7 @@ else:
     session_table   = session_handler.session_table
 
     filtered   = session_table[
-        session_table['genotype'].str.contains(GENOTYPE) &
-        (session_table['experience_level'] == 'Novel')
+        session_table['genotype'].str.contains(GENOTYPE)
     ]
     session_id = filtered.index[SESSION_INDEX]
     session    = session_handler.cache.get_ecephys_session(session_id)
@@ -116,7 +115,6 @@ else:
     row = filtered.loc[session_id]
     print(f'  Session ID : {session_id}')
     print(f'  Genotype   : {row["genotype"]}')
-    print(f'  Experience : {row["experience_level"]}')
 
     # Filter units
     units = (

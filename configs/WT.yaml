@@ -5,7 +5,6 @@ sessions:
   # "wt/wt" matches homozygous wildtype mice only — verify against your session table
   # before running: check unique genotype values with session_handler.session_table["genotype"].unique()
   genotype: "wt/wt"
-  experience_level: "Novel"
 
 unit_filters:
   snr_min : 1.0
@@ -21,6 +20,11 @@ optotagging:
   max_pulse_duration : 0.1
 
 psth:
+  time_before : 0.05  # 50 ms before pulse
+  duration : 0.15     # 100 ms after pulse onset
+  bin_size : 0.001
+
+psth_visual:
   time_before : 0.5
   duration : 1.5
   bin_size : 0.001

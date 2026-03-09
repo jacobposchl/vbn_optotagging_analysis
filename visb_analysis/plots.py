@@ -136,18 +136,20 @@ def plot_population_psth(psth_opto, psth_non_opto, time_bins, title=None):
         'Non-optotagged': (psth_non_opto, 'steelblue'),
     }
 
+    time_ms = time_bins * 1000
+
     fig, ax = plt.subplots(figsize=(8, 4))
     for label, (psth, color) in groups.items():
         if len(psth) == 0:
             continue
         mean = psth.mean(axis=0)
         sem  = psth.std(axis=0) / np.sqrt(len(psth))
-        ax.plot(time_bins, mean, color=color, lw=1.5,
+        ax.plot(time_ms, mean, color=color, lw=1.5,
                 label=f'{label} (n={len(psth)})')
-        ax.fill_between(time_bins, mean - sem, mean + sem, alpha=0.3, color=color)
+        ax.fill_between(time_ms, mean - sem, mean + sem, alpha=0.3, color=color)
 
     ax.axvline(0, color='k', lw=1, ls='--')
-    ax.set_xlabel('Time from change (s)')
+    ax.set_xlabel('Time from change (ms)')
     ax.set_ylabel('Firing rate (Hz)')
     ax.set_title(title or 'Population PSTH — optotagged vs non-optotagged')
     ax.legend()
@@ -172,10 +174,9 @@ def plot_psth_heatmaps(psth_opto, psth_non_opto, time_bins, suptitle=None,
     """
     if time_range is not None:
         view_mask = (time_bins >= time_range[0]) & (time_bins <= time_range[1])
-        t_view = time_bins[view_mask]
     else:
         view_mask = np.ones(len(time_bins), dtype=bool)
-        t_view = time_bins
+    t_view_ms = time_bins[view_mask] * 1000
 
     post_mask = (time_bins >= 0) & (time_bins < 0.5)
 
@@ -198,12 +199,12 @@ def plot_psth_heatmaps(psth_opto, psth_non_opto, time_bins, suptitle=None,
         im = ax.imshow(
             psth[sort_idx][:, view_mask],
             aspect='auto',
-            extent=[t_view[0], t_view[-1], len(psth), 0],
+            extent=[t_view_ms[0], t_view_ms[-1], len(psth), 0],
             vmin=0, vmax=vmax,
             cmap='viridis'
         )
         ax.axvline(0, color='w', lw=1, ls='--')
-        ax.set_xlabel('Time from change (s)')
+        ax.set_xlabel('Time from change (ms)')
         ax.set_ylabel('Unit (sorted by response)')
         ax.set_title(f'{title} (n={len(psth)})')
         plt.colorbar(im, ax=ax, label='Firing rate (Hz)')

@@ -26,18 +26,36 @@ def make_psth(spikes , start_times,  time_before, duration, bin_size):
     return rates , bins[ : -1]
 
 # Population level psth
-def make_population_psth(unit_collection, start_times, time_before, duration, bin_size):
+def make_population_psth(unit_collection, start_times, time_before, duration, bin_size,
+                         mean_over_trials=False):
     """
-    Population level of make_psth function
-    
+    Population level of make_psth function.
+
+    Parameters
+    ----------
+    mean_over_trials : bool
+        If True, return shape (n_units, n_bins) averaged over trials instead of
+        the full (n_units, n_bins, n_trials) array.  Use this in batch scripts
+        to avoid allocating the full 3-D array in memory.
     """
     bins = np.arange(-time_before, duration - time_before + bin_size, bin_size)
     n_bins = len(bins) - 1
     n_trials = len(start_times)
     unit_ids = list(unit_collection.units.index)
-    
-    psth_array = np.zeros((len(unit_ids), n_bins, n_trials))
 
+    if mean_over_trials:
+        psth_array = np.zeros((len(unit_ids), n_bins))
+        for i, uid in enumerate(unit_ids):
+            spikes = unit_collection.spike_times.get(uid)
+            if spikes is None:
+                continue
+            for t in start_times:
+                window_spikes = spikes[(spikes >= t - time_before) & (spikes < t + duration - time_before)]
+                psth_array[i] += np.histogram(window_spikes - t, bins=bins)[0] / bin_size
+        psth_array /= n_trials
+        return psth_array, bins[:-1], unit_ids
+
+    psth_array = np.zeros((len(unit_ids), n_bins, n_trials))
     for i, uid in enumerate(unit_ids):
         spikes = unit_collection.spike_times.get(uid)
         if spikes is None:

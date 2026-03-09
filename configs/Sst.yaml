@@ -3,7 +3,6 @@ results_dir: "c:/Users/Jacob Poschl/Desktop/visb_ecephys_analysis/results"
 
 sessions:
   genotype: "Sst"
-  experience_level: "Novel"
 
 unit_filters:
   snr_min : 1.0
@@ -19,6 +18,11 @@ optotagging:
   max_pulse_duration : 0.1 # Set to 100 ms, grabs the 10 ms pulses since that's the only pulse that is filtered from the dataset
 
 psth:
+  time_before : 0.05  # 50 ms before pulse
+  duration : 0.15     # 100 ms after pulse onset
+  bin_size : 0.001
+
+psth_visual:
   time_before : 0.5
   duration : 1.5
   bin_size : 0.001

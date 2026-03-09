@@ -36,8 +36,7 @@ def main(config_path: Path):
     session_filters = config.get("sessions")
     session_table = session_handler.session_table
     filtered_sessions = session_table[
-        (session_table["genotype"].str.contains(session_filters["genotype"])) & 
-        (session_table["experience_level"] == session_filters["experience_level"])
+        session_table["genotype"].str.contains(session_filters["genotype"])
     ]
     print(f"Filters: {session_filters}")
     filtered_session_ids = filtered_sessions.index.tolist()
@@ -58,6 +57,9 @@ def main(config_path: Path):
     psth_settings = config["psth"]
     print(f"psth Settings: {psth_settings}")
 
+    psth_visual_settings = config["psth_visual"]
+    print(f"psth_visual Settings: {psth_visual_settings}")
+
     for session_id in filtered_session_ids:
         session = session_handler.cache.get_ecephys_session(session_id)
 
@@ -67,26 +69,41 @@ def main(config_path: Path):
         add_optotagging_labels(units, session, optotagging)
 
         print(f"    -> Session: {session_id} has {len(units)} optotagged units")
-        
-        # Compute PSTHs
+
+        # Opto PSTH — aligned to laser pulses (short, max-power)
+        opto_table = session.optotagging_table
+        pulse_times = opto_table[
+            (opto_table["duration"] <= optotagging["max_pulse_duration"]) &
+            (opto_table["level"] == opto_table["level"].max())
+        ]["start_time"].values
+
+        psth_opto, time_bins_opto, unit_ids = make_population_psth(
+            units, pulse_times, mean_over_trials=True, **psth_settings
+        )
+
+        # Visual PSTH — aligned to image change onsets
         stim = session.stimulus_presentations
         change_times = stim[stim["is_change"] == True]["start_time"].values
 
-        psth_array , time_bins , unit_ids = make_population_psth(units, change_times, **psth_settings)
+        psth_visual, time_bins_visual, _ = make_population_psth(
+            units, change_times, mean_over_trials=True, **psth_visual_settings
+        )
 
-        # Save Results — average over trials to keep files small (n_units, n_bins)
+        # Save Results
         np.savez(
             results_dir / f"{session_id}.npz",
-            psth_array = psth_array.mean(axis=2),
-            time_bins = time_bins,
-            unit_ids = unit_ids,
+            psth_opto        = psth_opto,
+            time_bins_opto   = time_bins_opto,
+            psth_visual      = psth_visual,
+            time_bins_visual = time_bins_visual,
+            unit_ids         = unit_ids,
         )
 
         # Unit metadata
         units.units.to_csv(results_dir / f"{session_id}_units.csv")
 
         # Explicitly release NWB session data before loading the next session
-        del psth_array, units, session
+        del psth_opto, psth_visual, units, session
         gc.collect()
 
     print(f"Processed all filtered sessions")
