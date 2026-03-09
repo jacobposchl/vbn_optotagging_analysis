@@ -27,9 +27,7 @@ class UnitCollection:
     
     def filter_region(self, regions : list[str]):
         pattern = '|'.join(regions)
-        self.units = self.units[
-            self.units["structure_acronym"].str.contains(pattern, regex=True)
-        ]
+        self.units = self.units[self.units["structure_acronym"].str.contains(pattern, regex=True)]
 
         return self
     

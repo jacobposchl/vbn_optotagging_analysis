@@ -16,7 +16,7 @@ cache.load_latest_manifest()
 session_table = cache.get_ecephys_session_table()
 session_ids = session_table.index.tolist()
 
-# Download all sessions (this will take a long time)
+# Download all sessions (make sure you have around 500 GB)
 for i, session_id in enumerate(session_ids):
     print(f"Downloading session {i+1}/{len(session_ids)}: {session_id}")
     try:

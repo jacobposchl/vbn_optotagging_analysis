@@ -1,19 +1,17 @@
 """
 Parameter sweep for optotagging thresholds.
 
-Loads one representative session once, builds the opto PSTH array once,
-then iterates over all (increase_in_FR, min_evoked_rate) combinations.
-For each combination it generates the same diagnostics as parameter_tuning.ipynb
-(scatter, heatmap, reliability, latency, shuffled FP control) and saves them
-to an individual folder so you can compare configs side-by-side.
-
-A summary CSV and sweep grid image are written at the end.
+Pipeline:
+1. Loads one representative session once
+2. Builds opto PSTH array
+3. Iterates over all (increase_in_FR, min_evoked_rate) combinations
+4. For each combination, generates diagnostics
+- scatter, heatmap, reliability, latency, shuffled FP control
 
 Usage:
     python scripts/param_sweep.py              # full sweep
     python scripts/param_sweep.py --plot-only  # regenerate sweep_grid.png from existing summary.csv
 
-Edit the SWEEP PARAMETERS section below to change what gets tested.
 """
 
 import argparse
@@ -25,12 +23,11 @@ import itertools
 from pathlib import Path
 
 _parser = argparse.ArgumentParser()
-_parser.add_argument('--plot-only', action='store_true',
-                     help='Skip the sweep; regenerate sweep_grid.png from existing summary.csv')
+_parser.add_argument('--plot-only', action='store_true', help='Skip the sweep; regenerate sweep_grid.png from existing summary.csv')
 _args = _parser.parse_args()
 
 import matplotlib
-matplotlib.use('Agg')  # non-interactive — must be set before pyplot import
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
@@ -50,20 +47,17 @@ from visb_analysis.plots import (
     plot_fp_summary,
 )
 
-
-# ---------------------------------------------------------------------------
-# SWEEP PARAMETERS — edit this section
-# ---------------------------------------------------------------------------
+# SWEEP PARAMETERS --- ADJUST THESE
 
 GENOTYPE      = 'Vip'   # 'Sst' or 'Vip'
 SESSION_INDEX = 5        # which session to use (0 = first available)
 REGIONS       = ['VIS']  # brain regions to include
 
 # Grid values to sweep
-FOLD_VALUES     = [2, 3, 5]   # increase_in_FR candidates
-MIN_RATE_VALUES = [10, 30, 50]  # min_evoked_rate candidates (Hz)
+FOLD_VALUES     = [2, 3, 5]
+MIN_RATE_VALUES = [10, 30, 50]
 
-# Evoked window (kept fixed — only fold and min_rate are swept)
+# Evoked window
 EVOKED_START_MS = 1
 EVOKED_END_MS   = 9
 
@@ -71,19 +65,14 @@ EVOKED_END_MS   = 9
 N_SHUFFLES = 20
 SHIFT_S    = 5.0
 
-# ---------------------------------------------------------------------------
-# SETUP
-# ---------------------------------------------------------------------------
 
 ROOT      = Path(__file__).resolve().parents[1]
 OUT_ROOT  = ROOT / 'results' / 'param_sweep' / GENOTYPE
 CONFIG    = ROOT / 'configs' / 'base.yaml'
 summary_path = OUT_ROOT / 'summary.csv'
 
+# No sweep, just output plots for visualization
 if _args.plot_only:
-    # ---------------------------------------------------------------------------
-    # PLOT-ONLY: read existing summary CSV, skip all data loading
-    # ---------------------------------------------------------------------------
     if not summary_path.exists():
         raise FileNotFoundError(
             f'No summary CSV found at {summary_path}\n'
@@ -108,14 +97,11 @@ if _args.plot_only:
     print(f'Loaded {len(summary_rows)} rows from {summary_path}')
 
 else:
-    # ---------------------------------------------------------------------------
     # FULL SWEEP
-    # ---------------------------------------------------------------------------
-
     with CONFIG.open('r') as f:
         config = yaml.safe_load(f)
 
-    # --- Load session (once) ---
+    # Load session
     print(f'Loading {GENOTYPE} session {SESSION_INDEX}...')
     session_handler = SessionHandler(Path(config['cache_dir']))
     session_table   = session_handler.session_table
@@ -132,7 +118,7 @@ else:
     print(f'  Genotype   : {row["genotype"]}')
     print(f'  Experience : {row["experience_level"]}')
 
-    # --- Filter units (once) ---
+    # Filter units
     units = (
         UnitCollection(session=session)
         .filter_quality(config['unit_filters'])
@@ -140,7 +126,7 @@ else:
     )
     print(f'  Units after filters: {len(units)}')
 
-    # --- Build opto array (once) ---
+    # Build opto array
     opto_table = session.optotagging_table
     sel_pulses = opto_table[
         (opto_table['duration'] <= config['optotagging']['max_pulse_duration']) &
@@ -177,7 +163,7 @@ else:
     opto_config_tuning = {**config['optotagging'], 'evoked_window': evoked_window}
     n_total            = len(units)
 
-    # --- Sweep ---
+    # Sweep
     summary_rows = []
     combos = list(itertools.product(FOLD_VALUES, MIN_RATE_VALUES))
     print(f'\nRunning sweep: {len(combos)} configs...\n')
@@ -256,23 +242,20 @@ else:
             'std_shuffled_fp':   round(std_fp, 2),
         })
 
-    # --- Write CSV ---
+    # Output
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     fieldnames = list(summary_rows[0].keys())
     with summary_path.open('w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(summary_rows)
-    print(f'\nDone. Results in: {OUT_ROOT}')
-    print(f'Summary CSV   : {summary_path}')
+    print(f'\n -> Completed, Results in: {OUT_ROOT}')
+    print(f'    -> Summary CSV   : {summary_path}')
 
-print(f'\nDone. Results in: {OUT_ROOT}')
-print(f'Summary CSV   : {summary_path}')
+print(f' -> Completed, Results in: {OUT_ROOT}')
+print(f'    -> Summary CSV   : {summary_path}')
 
-# ---------------------------------------------------------------------------
 # SWEEP GRID VISUALIZATION
-# ---------------------------------------------------------------------------
-
 folds     = sorted(set(r['fold']        for r in summary_rows))
 min_rates = sorted(set(r['min_rate_hz'] for r in summary_rows))
 
@@ -284,7 +267,7 @@ metrics = [
     ('n_cre_pos',        'Cre+ count',                       'YlOrRd',    '{:.0f}',   'sweep_cre_count.png'),
     ('med_reliability',  'Median reliability',               'YlGn',      '{:.2f}',   'sweep_reliability.png'),
     ('frac_rel_gt_0.5',  'Fraction reliability > 0.5',       'YlGn',      '{:.2f}',   'sweep_frac_reliability.png'),
-    ('med_latency_ms',   'Median first-spike latency (ms)\n(target: 2–4 ms)', 'Blues', '{:.1f}', 'sweep_latency.png'),
+    ('med_latency_ms',   'Median first-spike latency (ms)',  'Blues',     '{:.1f}',   'sweep_latency.png'),
     ('mean_shuffled_fp', 'Mean shuffled FP',                 'YlOrRd_r',  '{:.1f}',   'sweep_shuffled_fp.png'),
 ]
 
